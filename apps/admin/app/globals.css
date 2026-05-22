@@ -2,22 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* RetainIQ Pro brand system */
 :root {
-  --background: #f7f7ff;
-  --foreground: #11111a;
-  --brand: #3c3489;
-  --brand-muted: #ccc9f0;
+  /* Purple (primary brand) */
+  --p-800: #3c3489;
+  --p-600: #534ab7;
+  --p-400: #7f77dd;
+  --p-200: #afa9ec;
+  --p-100: #cecbf6;
+  --p-50: #eeedfe;
+
+  /* Teal (success / WhatsApp) */
+  --t-800: #085041;
+  --t-600: #0f6e56;
+  --t-400: #1d9e75;
+  --t-100: #9fe1cb;
+  --t-50: #e1f5ee;
+
+  /* Neutral */
+  --n-900: #1a1640;
+  --n-800: #2c2c2a;
+  --n-600: #444441;
+  --n-400: #888780;
+  --n-200: #b4b2a9;
+  --n-100: #d3d1c7;
+  --n-50: #f1efe8;
+
+  /* Semantic */
+  --red: #e24b4a;
+  --red-50: #fceaeb;
+  --amber: #ef9f27;
+  --amber-50: #faeeda;
+
+  /* Mapped tokens (light theme) */
+  --background: #ffffff;
+  --background-warm: var(--n-50);
+  --foreground: var(--n-800);
+  --foreground-muted: var(--n-600);
+  --foreground-subtle: var(--n-400);
+  --surface: #ffffff;
+  --surface-muted: var(--n-50);
+  --border: var(--n-100);
+  --brand: var(--p-800);
+  --brand-hover: var(--p-600);
+  --brand-soft: var(--p-50);
+  --brand-muted: var(--p-100);
+  --success: var(--t-600);
+  --success-soft: var(--t-50);
+  --success-border: var(--t-100);
+  --warning: var(--amber);
+  --warning-soft: var(--amber-50);
+  --danger: var(--red);
+  --danger-soft: var(--red-50);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #11111a;
-    --foreground: #f7f7ff;
+    --background: var(--n-900);
+    --background-warm: #14112e;
+    --foreground: #f1efe8;
+    --foreground-muted: #b4b2a9;
+    --foreground-subtle: #888780;
+    --surface: #221d4d;
+    --surface-muted: #14112e;
+    --border: #2e2861;
+    --brand-soft: #2b2660;
     --brand-muted: #4a4470;
+    --success-soft: #0a3026;
+    --success-border: #0f6e56;
+    --warning-soft: #3a2810;
+    --danger-soft: #3a1313;
   }
 }
 
+html,
 body {
+  background: var(--background-warm);
   color: var(--foreground);
-  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+}
+
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
 }

@@ -4,6 +4,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -39,6 +40,8 @@ export const customers = pgTable(
     optInWhatsapp: boolean("opt_in_whatsapp").default(false),
     optInSms: boolean("opt_in_sms").default(false),
     optInEmail: boolean("opt_in_email").default(true),
+    npsScore: smallint("nps_score"),
+    npsSubmittedAt: timestamp("nps_submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

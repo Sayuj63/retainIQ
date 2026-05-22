@@ -1,6 +1,7 @@
 import type { Session } from "@shopify/shopify-api";
 import type { DrizzleDb } from "@retainiq/db";
 import { shops } from "@retainiq/db/schema";
+import { seedDefaultFlowsForShop } from "@retainiq/db";
 
 export async function upsertShopFromSession(
   db: DrizzleDb,
@@ -10,7 +11,7 @@ export async function upsertShopFromSession(
     throw new Error("OAuth session missing access token");
   }
 
-  await db
+  const [row] = await db
     .insert(shops)
     .values({
       shopifyDomain: session.shop,
@@ -24,5 +25,8 @@ export async function upsertShopFromSession(
         accessToken: session.accessToken,
         isActive: true,
       },
-    });
+    })
+    .returning();
+
+  if (row) await seedDefaultFlowsForShop(db, row.id);
 }

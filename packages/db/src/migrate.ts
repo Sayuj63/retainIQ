@@ -16,7 +16,11 @@ export function splitSqlStatements(sql: string): string[] {
 
 async function readMigrationFiles(): Promise<string[]> {
   const drizzleDir = join(pkgRoot, "drizzle");
-  const files = ["0000_init.sql", "0001_queued_jobs.sql"];
+  const files = [
+    "0000_init.sql",
+    "0001_queued_jobs.sql",
+    "0002_phase2.sql",
+  ];
   const out: string[] = [];
   for (const f of files) {
     try {
@@ -35,7 +39,13 @@ export async function runSqlMigrations(
   const files = await readMigrationFiles();
   for (const file of files) {
     for (const stmt of splitSqlStatements(file)) {
-      await executor(stmt);
+      try {
+        await executor(stmt);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/already exists/i.test(msg)) continue;
+        throw err;
+      }
     }
   }
 }

@@ -1,11 +1,16 @@
 import crypto from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { DrizzleDb } from "./create-db";
 import { customers } from "./schema/customers";
 import { orders } from "./schema/orders";
 import { shops } from "./schema/shops";
 import { enqueueJob } from "./job-queue";
+import {
+  recomputeReorderForCustomer,
+  scheduleReplenishmentReminders,
+} from "./replenishment";
+import { scoreCustomer } from "./scoring";
 
 const LineItemSchema = z.object({
   sku: z.string().nullable().optional(),
@@ -45,7 +50,7 @@ export async function ingestOrderPaidEvent(
   db: DrizzleDb,
   shopDomain: string,
   rawPayload: unknown,
-): Promise<{ orderRowId: string; customerRowId: string }> {
+): Promise<{ orderRowId: string; customerRowId: string; score: number }> {
   const payload = OrderWebhookSchema.parse(rawPayload);
 
   const [shop] = await db
@@ -69,6 +74,38 @@ export async function ingestOrderPaidEvent(
       ? hashEmail(payload.customer.email)
       : null;
 
+  const [priorCustomer] = await db
+    .select()
+    .from(customers)
+    .where(
+      and(
+        eq(customers.shopId, shop.id),
+        eq(customers.shopifyCustomerId, shopifyCustomerId),
+      ),
+    )
+    .limit(1);
+
+  const now = new Date();
+  const previousOrderCount = priorCustomer?.orderCount ?? 0;
+  const lastOrderAt = priorCustomer?.lastOrderAt ?? null;
+  const daysSinceLastOrder = lastOrderAt
+    ? Math.max(
+        0,
+        Math.floor((now.getTime() - lastOrderAt.getTime()) / 86_400_000),
+      )
+    : null;
+
+  const aov = Number(payload.total_price) || 0;
+  const brandMedianAov = await computeBrandMedianAov(db, shop.id);
+
+  const scoring = scoreCustomer({
+    aov,
+    brandMedianAov,
+    daysSinceLastOrder,
+    orderCount: previousOrderCount + 1,
+    discountUsed: Boolean(payload.discount_codes?.length),
+  });
+
   const [customerRow] = await db
     .insert(customers)
     .values({
@@ -76,14 +113,22 @@ export async function ingestOrderPaidEvent(
       shopifyCustomerId,
       emailHash,
       orderCount: 1,
-      lastOrderAt: new Date(),
+      lastOrderAt: now,
+      churnScore: scoring.score.toFixed(2),
+      churnScoreUpdatedAt: now,
+      churnScoreFeatures: { features: scoring.features, action: scoring.action },
+      segment: scoring.segment,
     })
     .onConflictDoUpdate({
       target: [customers.shopId, customers.shopifyCustomerId],
       set: {
         orderCount: sql`${customers.orderCount} + 1`,
-        lastOrderAt: new Date(),
-        updatedAt: new Date(),
+        lastOrderAt: now,
+        updatedAt: now,
+        churnScore: scoring.score.toFixed(2),
+        churnScoreUpdatedAt: now,
+        churnScoreFeatures: { features: scoring.features, action: scoring.action },
+        segment: scoring.segment,
         ...(emailHash ? { emailHash } : {}),
       },
     })
@@ -137,8 +182,34 @@ export async function ingestOrderPaidEvent(
     new Date(Date.now() + postPurchaseDelayMs()),
   );
 
+  const predictions = await recomputeReorderForCustomer(db, customerRow.id);
+  await scheduleReplenishmentReminders(
+    db,
+    { shopId: shop.id, customerId: customerRow.id },
+    predictions,
+  );
+
   return {
     orderRowId: orderRow.id,
     customerRowId: customerRow.id,
+    score: scoring.score,
   };
+}
+
+async function computeBrandMedianAov(
+  db: DrizzleDb,
+  shopId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ aov: orders.aov })
+    .from(orders)
+    .where(eq(orders.shopId, shopId))
+    .limit(500);
+  const nums = rows
+    .map((r) => Number(r.aov))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+  if (nums.length === 0) return 0;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 === 0 ? (nums[mid - 1]! + nums[mid]!) / 2 : nums[mid]!;
 }

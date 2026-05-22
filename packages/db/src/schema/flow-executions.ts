@@ -23,6 +23,7 @@ export const flowExecutions = pgTable("flow_executions", {
     .notNull()
     .references(() => flows.id),
   stepId: text("step_id").notNull(),
+  variantId: text("variant_id"),
   channel: text("channel").notNull(),
   status: text("status").notNull().default("pending"),
   providerMessageId: text("provider_message_id"),

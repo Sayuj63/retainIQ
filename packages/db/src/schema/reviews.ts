@@ -30,6 +30,7 @@ export const reviews = pgTable("reviews", {
   publishedAt: timestamp("published_at", { withTimezone: true }),
   publishedTo: text("published_to").array(),
   routedTo: text("routed_to"),
+  supportTicketId: text("support_ticket_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
